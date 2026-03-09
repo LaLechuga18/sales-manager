@@ -1,0 +1,26 @@
+{
+  "name": "sales-manager",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LaLechuga18/sales-manager.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/LaLechuga18/sales-manager/issues"
+  },
+  "homepage": "https://github.com/LaLechuga18/sales-manager#readme",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "better-sqlite3": "^12.6.2",
+    "express": "^5.2.1",
+    "express-session": "^1.19.0"
+  }
+}
