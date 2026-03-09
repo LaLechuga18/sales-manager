@@ -5,11 +5,10 @@ let ventas = JSON.parse(localStorage.getItem('gs_ventas') || '[]');
 // ── Fecha actual ────────────────────────────────────────
 const hoy = new Date();
 const fechaStr = hoy.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
-const fechaKey = hoy.toISOString().split('T')[0]; // YYYY-MM-DD
+const fechaKey = hoy.toISOString().split('T')[0];
 document.getElementById('header-date').textContent = fechaStr;
 document.getElementById('res-fecha').textContent = fechaStr;
 
-// Solo ventas de hoy
 function ventasHoy() {
     return ventas.filter(v => v.fecha === fechaKey);
 }
@@ -47,9 +46,8 @@ function agregarProducto() {
     const tipo = document.getElementById('prod-tipo').value;
     const precio = parseFloat(document.getElementById('prod-precio').value);
     if (!nombre) return alert('Escribe el nombre del producto.');
-    if (isNaN(precio) || precio < 0) return alert('Precio inválido.');
+    if (isNaN(precio) || precio < 0) return alert('Precio invalido.');
 
-    // Validar duplicado (case-insensitive)
     const duplicado = productos.find(p => p.nombre.toLowerCase() === nombre.toLowerCase());
     if (duplicado) return alert(`Ya existe un producto llamado "${duplicado.nombre}".`);
 
@@ -62,7 +60,7 @@ function agregarProducto() {
 }
 
 function eliminarProducto(id) {
-    if (!confirm('¿Eliminar este producto?')) return;
+    if (!confirm('Eliminar este producto?')) return;
     productos = productos.filter(p => String(p.id) !== String(id));
     save();
     renderProductos();
@@ -73,25 +71,26 @@ function eliminarProducto(id) {
 function renderProductos() {
     const el = document.getElementById('lista-productos');
     if (!productos.length) {
-        el.innerHTML = '<div class="empty"><div class="empty-icon">📦</div>Sin productos aún.<br>Agrega el primero arriba.</div>';
+        el.innerHTML = '<div class="empty"><div class="empty-icon">📦</div>Sin productos aun.<br>Agrega el primero arriba.</div>';
         return;
     }
     el.innerHTML = productos.map(p => `
-    <div class="prod-item">
-        <span class="prod-tag ${p.tipo === 'kilo' ? 'kilo' : ''}">${p.tipo === 'kilo' ? 'kg' : 'pieza'}</span>
-        <span class="prod-name">${p.nombre}</span>
-        <span class="prod-price">$${p.precio.toFixed(2)}</span>
-        <button class="btn-edit" onclick="abrirEditar(${p.id})">✏️</button>
-        <button class="btn btn-danger" onclick="eliminarProducto(${p.id})">✕</button>
-    </div>
+        <div class="prod-item">
+            <span class="prod-tag ${p.tipo === 'kilo' ? 'kilo' : ''}">${p.tipo === 'kilo' ? 'kg' : 'pieza'}</span>
+            <span class="prod-name">${p.nombre}</span>
+            <span class="prod-price">$${p.precio.toFixed(2)}</span>
+            <button class="btn-edit" onclick="abrirEditar('${p.id}')">✏️</button>
+        </div>
     `).join('');
 }
 
 // ── Modal editar ─────────────────────────────────────────
+let editandoId = null;
+
 function abrirEditar(id) {
     const p = productos.find(p => String(p.id) === String(id));
     if (!p) return;
-    document.getElementById('edit-id').value = id;
+    editandoId = id;
     document.getElementById('edit-nombre').value = p.nombre;
     document.getElementById('edit-tipo').value = p.tipo;
     document.getElementById('edit-precio').value = p.precio;
@@ -101,24 +100,24 @@ function abrirEditar(id) {
 }
 
 function cerrarModal() {
+    editandoId = null;
     document.getElementById('modal-editar').classList.remove('open');
 }
 
 function guardarEdicion() {
-    const id = parseInt(document.getElementById('edit-id').value);
+    const id = editandoId;
     const nombre = document.getElementById('edit-nombre').value.trim();
     const tipo = document.getElementById('edit-tipo').value;
     const precio = parseFloat(document.getElementById('edit-precio').value);
 
-    // Validar duplicado excluyendo el producto actual
     const duplicado = productos.find(p => String(p.id) !== String(id) && p.nombre.toLowerCase() === nombre.toLowerCase());
     if (duplicado) {
         document.getElementById('edit-nombre').classList.add('input-error');
         document.getElementById('edit-nombre-error').style.display = 'block';
         return;
     }
-    if (!nombre) return alert('El nombre no puede estar vacío.');
-    if (isNaN(precio) || precio < 0) return alert('Precio inválido.');
+    if (!nombre) return alert('El nombre no puede estar vacio.');
+    if (isNaN(precio) || precio < 0) return alert('Precio invalido.');
 
     const idx = productos.findIndex(p => String(p.id) === String(id));
     if (idx === -1) return;
@@ -130,7 +129,17 @@ function guardarEdicion() {
     toast('Producto actualizado');
 }
 
-// Cerrar modal al click fuera
+function eliminarDesdeModal() {
+    if (!editandoId) return;
+    if (!confirm('Eliminar este producto?')) return;
+    productos = productos.filter(p => String(p.id) !== String(editandoId));
+    save();
+    cerrarModal();
+    renderProductos();
+    poblarSelectProductos();
+    toast('Eliminado');
+}
+
 document.getElementById('modal-editar').addEventListener('click', function (e) {
     if (e.target === this) cerrarModal();
 });
@@ -143,8 +152,8 @@ function poblarSelectProductos() {
 }
 
 function onProductoChange() {
-    const id = parseInt(document.getElementById('venta-producto').value);
-    const prod = productos.find(p => p.id === id);
+    const id = document.getElementById('venta-producto').value;
+    const prod = productos.find(p => String(p.id) === String(id));
     if (!prod) return;
     document.getElementById('venta-precio').value = prod.precio;
     const esKilo = prod.tipo === 'kilo';
@@ -154,8 +163,8 @@ function onProductoChange() {
 }
 
 function calcularTotal() {
-    const id = parseInt(document.getElementById('venta-producto').value);
-    const prod = productos.find(p => p.id === id);
+    const id = document.getElementById('venta-producto').value;
+    const prod = productos.find(p => String(p.id) === String(id));
     const precio = parseFloat(document.getElementById('venta-precio').value) || 0;
     let qty = 0;
     if (prod && prod.tipo === 'kilo') {
@@ -167,8 +176,8 @@ function calcularTotal() {
 }
 
 function registrarVenta() {
-    const id = parseInt(document.getElementById('venta-producto').value);
-    const prod = productos.find(p => p.id === id);
+    const id = document.getElementById('venta-producto').value;
+    const prod = productos.find(p => String(p.id) === String(id));
     if (!prod) return alert('Selecciona un producto.');
     const precio = parseFloat(document.getElementById('venta-precio').value);
     const nota = document.getElementById('venta-nota').value.trim();
@@ -180,8 +189,8 @@ function registrarVenta() {
         qty = parseFloat(document.getElementById('venta-cantidad').value);
         unidad = qty === 1 ? 'pieza' : 'piezas';
     }
-    if (!qty || qty <= 0) return alert('Ingresa una cantidad válida.');
-    if (!precio || precio <= 0) return alert('Ingresa un precio válido.');
+    if (!qty || qty <= 0) return alert('Ingresa una cantidad valida.');
+    if (!precio || precio <= 0) return alert('Ingresa un precio valido.');
 
     ventas.push({
         id: Date.now(),
@@ -198,7 +207,6 @@ function registrarVenta() {
     });
     save();
 
-    // Reset form
     document.getElementById('venta-producto').value = '';
     document.getElementById('venta-cantidad').value = '';
     document.getElementById('venta-kilos').value = '';
@@ -217,7 +225,6 @@ function renderVentas() {
     const hoyVentas = ventasHoy();
     const el = document.getElementById('lista-ventas');
 
-    // Summary chips
     const totalDinero = hoyVentas.reduce((a, v) => a + v.total, 0);
     const totalArticulos = hoyVentas.reduce((a, v) => a + v.qty, 0);
     document.getElementById('sum-ventas').textContent = hoyVentas.length;
@@ -225,30 +232,30 @@ function renderVentas() {
     document.getElementById('sum-productos').textContent = totalArticulos % 1 === 0 ? totalArticulos : totalArticulos.toFixed(1);
 
     if (!hoyVentas.length) {
-        el.innerHTML = '<div class="empty"><div class="empty-icon">🐓</div>Aún no hay ventas hoy.<br>¡Registra la primera!</div>';
+        el.innerHTML = '<div class="empty"><div class="empty-icon">🐓</div>Aun no hay ventas hoy.<br>Registra la primera!</div>';
         return;
     }
 
     el.innerHTML = [...hoyVentas].reverse().map(v => `
-    <div class="venta-item">
-        <div class="venta-info">
-        <div class="venta-nombre">
-            ${v.productoNombre}
-            <span class="tag-tipo ${v.tipo === 'kilo' ? 'tag-kilo' : 'tag-pieza'}">${v.tipo === 'kilo' ? '⚖️ kg' : '🔢 pieza'}</span>
+        <div class="venta-item">
+            <div class="venta-info">
+                <div class="venta-nombre">
+                    ${v.productoNombre}
+                    <span class="tag-tipo ${v.tipo === 'kilo' ? 'tag-kilo' : 'tag-pieza'}">${v.tipo === 'kilo' ? 'kg' : 'pieza'}</span>
+                </div>
+                <div class="venta-detalle">${v.qty} ${v.unidad} x $${v.precio.toFixed(2)} · ${v.hora}${v.nota ? ' · ' + v.nota : ''}</div>
+            </div>
+            <div class="venta-actions">
+                <span class="venta-total">$${v.total.toFixed(2)}</span>
+                <button class="btn btn-danger" onclick="eliminarVenta('${v.id}')">X</button>
+            </div>
         </div>
-        <div class="venta-detalle">${v.qty} ${v.unidad} × $${v.precio.toFixed(2)} · ${v.hora}${v.nota ? ' · ' + v.nota : ''}</div>
-        </div>
-        <div class="venta-actions">
-        <span class="venta-total">$${v.total.toFixed(2)}</span>
-        <button class="btn btn-danger" onclick="eliminarVenta(${v.id})">✕</button>
-        </div>
-    </div>
     `).join('');
 }
 
 function eliminarVenta(id) {
-    if (!confirm('¿Eliminar esta venta?')) return;
-    ventas = ventas.filter(v => v.id !== id);
+    if (!confirm('Eliminar esta venta?')) return;
+    ventas = ventas.filter(v => String(v.id) !== String(id));
     save();
     renderVentas();
     toast('Venta eliminada');
@@ -264,7 +271,6 @@ function renderResumen() {
     document.getElementById('res-articulos').textContent = articulos % 1 === 0 ? articulos : articulos.toFixed(2);
     document.getElementById('res-total').textContent = '$' + total.toFixed(2);
 
-    // Desglose por producto
     const desglose = {};
     hoyVentas.forEach(v => {
         if (!desglose[v.productoNombre]) desglose[v.productoNombre] = { qty: 0, total: 0, tipo: v.tipo };
@@ -279,22 +285,22 @@ function renderResumen() {
         return;
     }
     el.innerHTML = entries.map(([nombre, d]) => `
-    <div class="venta-item">
-        <div class="venta-info">
-        <div class="venta-nombre">${nombre}</div>
-        <div class="venta-detalle">${d.qty % 1 === 0 ? d.qty : d.qty.toFixed(2)} ${d.tipo === 'kilo' ? 'kg' : 'piezas'}</div>
+        <div class="venta-item">
+            <div class="venta-info">
+                <div class="venta-nombre">${nombre}</div>
+                <div class="venta-detalle">${d.qty % 1 === 0 ? d.qty : d.qty.toFixed(2)} ${d.tipo === 'kilo' ? 'kg' : 'piezas'}</div>
+            </div>
+            <span class="venta-total">$${d.total.toFixed(2)}</span>
         </div>
-        <span class="venta-total">$${d.total.toFixed(2)}</span>
-    </div>
     `).join('');
 }
 
 function borrarVentasHoy() {
-    if (!confirm('¿Seguro que quieres borrar todas las ventas de hoy?')) return;
+    if (!confirm('Seguro que quieres borrar todas las ventas de hoy?')) return;
     ventas = ventas.filter(v => v.fecha !== fechaKey);
     save();
     renderResumen();
-    toast('Ventas del día borradas');
+    toast('Ventas del dia borradas');
 }
 
 // ── Init ─────────────────────────────────────────────────
