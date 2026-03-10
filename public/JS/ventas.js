@@ -30,7 +30,7 @@ function calcularTotal() {
     document.getElementById('venta-total-calc').value = (precio * qty).toFixed(2);
 }
 
-function registrarVenta() {
+async function registrarVenta() {
     const id   = document.getElementById('venta-producto').value;
     const prod = productos.find(p => String(p.id) === String(id));
     if (!prod) return alert('Selecciona un producto.');
@@ -47,25 +47,30 @@ function registrarVenta() {
     if (!qty || qty <= 0) return alert('Ingresa una cantidad valida.');
     if (!precio || precio <= 0) return alert('Ingresa un precio valido.');
 
-    ventas.push({
-        id: Date.now(),
-        fecha: fechaKey,
-        productoId: prod.id,
-        productoNombre: prod.nombre,
-        tipo: prod.tipo,
-        qty, unidad, precio,
-        total: precio * qty,
-        nota,
-        hora: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+    const res = await fetch('/api/ventas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            fecha: fechaKey,
+            hora: new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),
+            producto_id: prod.id,
+            producto_nombre: prod.nombre,
+            tipo: prod.tipo,
+            cantidad: qty,
+            unidad, precio,
+            total: precio * qty,
+            nota
+        })
     });
-    save();
+    const data = await res.json();
+    if (data.error) return alert(data.error);
 
-    document.getElementById('venta-producto').value    = '';
-    document.getElementById('venta-cantidad').value    = '';
-    document.getElementById('venta-kilos').value       = '';
-    document.getElementById('venta-precio').value      = '';
-    document.getElementById('venta-total-calc').value  = '';
-    document.getElementById('venta-nota').value        = '';
+    document.getElementById('venta-producto').value   = '';
+    document.getElementById('venta-cantidad').value   = '';
+    document.getElementById('venta-kilos').value      = '';
+    document.getElementById('venta-precio').value     = '';
+    document.getElementById('venta-total-calc').value = '';
+    document.getElementById('venta-nota').value       = '';
     document.getElementById('campo-cantidad-pieza').style.display = 'block';
     document.getElementById('campo-cantidad-kilo').style.display  = 'none';
 
@@ -73,29 +78,29 @@ function registrarVenta() {
     showTab('ventas');
 }
 
-function renderVentas() {
-    const hoyVentas = ventasHoy();
-    const el = document.getElementById('lista-ventas');
+async function renderVentas() {
+    const res = await fetch(`/api/ventas?fecha=${fechaKey}`);
+    ventas = await res.json();
 
-    const totalDinero    = hoyVentas.reduce((a, v) => a + v.total, 0);
-    const totalArticulos = hoyVentas.reduce((a, v) => a + v.qty, 0);
-    document.getElementById('sum-ventas').textContent    = hoyVentas.length;
+    const el = document.getElementById('lista-ventas');
+    const totalDinero    = ventas.reduce((a, v) => a + v.total, 0);
+    const totalArticulos = ventas.reduce((a, v) => a + v.cantidad, 0);
+    document.getElementById('sum-ventas').textContent    = ventas.length;
     document.getElementById('sum-total').textContent     = '$' + totalDinero.toFixed(2);
     document.getElementById('sum-productos').textContent = totalArticulos % 1 === 0 ? totalArticulos : totalArticulos.toFixed(1);
 
-    if (!hoyVentas.length) {
+    if (!ventas.length) {
         el.innerHTML = '<div class="empty"><div class="empty-icon">🐓</div>Aun no hay ventas hoy.<br>Registra la primera!</div>';
         return;
     }
-
-    el.innerHTML = [...hoyVentas].reverse().map(v => `
+    el.innerHTML = [...ventas].reverse().map(v => `
         <div class="venta-item">
             <div class="venta-info">
                 <div class="venta-nombre">
-                    ${v.productoNombre}
+                    ${v.producto_nombre}
                     <span class="tag-tipo ${v.tipo === 'kilo' ? 'tag-kilo' : 'tag-pieza'}">${v.tipo === 'kilo' ? 'kg' : 'pieza'}</span>
                 </div>
-                <div class="venta-detalle">${v.qty} ${v.unidad} x $${v.precio.toFixed(2)} · ${v.hora}${v.nota ? ' · ' + v.nota : ''}</div>
+                <div class="venta-detalle">${v.cantidad} ${v.unidad} x $${v.precio.toFixed(2)} · ${v.hora}${v.nota ? ' · ' + v.nota : ''}</div>
             </div>
             <div class="venta-actions">
                 <span class="venta-total">$${v.total.toFixed(2)}</span>
@@ -105,20 +110,18 @@ function renderVentas() {
     `).join('');
 }
 
-function eliminarVenta(id) {
+async function eliminarVenta(id) {
     if (!confirm('Eliminar esta venta?')) return;
-    ventas = ventas.filter(v => String(v.id) !== String(id));
-    save();
-    renderVentas();
+    await fetch(`/api/ventas/${id}`, { method: 'DELETE' });
+    await renderVentas();
     toast('Venta eliminada');
 }
 
-// ── Resumen ───────────────────────────────────────────────
-
-function renderResumen() {
-    const hoyVentas = ventasHoy();
+async function renderResumen() {
+    const res = await fetch(`/api/ventas?fecha=${fechaKey}`);
+    const hoyVentas = await res.json();
     const total     = hoyVentas.reduce((a, v) => a + v.total, 0);
-    const articulos = hoyVentas.reduce((a, v) => a + v.qty, 0);
+    const articulos = hoyVentas.reduce((a, v) => a + v.cantidad, 0);
 
     document.getElementById('res-n-ventas').textContent  = hoyVentas.length;
     document.getElementById('res-articulos').textContent = articulos % 1 === 0 ? articulos : articulos.toFixed(2);
@@ -126,9 +129,9 @@ function renderResumen() {
 
     const desglose = {};
     hoyVentas.forEach(v => {
-        if (!desglose[v.productoNombre]) desglose[v.productoNombre] = { qty: 0, total: 0, tipo: v.tipo };
-        desglose[v.productoNombre].qty   += v.qty;
-        desglose[v.productoNombre].total += v.total;
+        if (!desglose[v.producto_nombre]) desglose[v.producto_nombre] = { qty: 0, total: 0, tipo: v.tipo };
+        desglose[v.producto_nombre].qty   += v.cantidad;
+        desglose[v.producto_nombre].total += v.total;
     });
 
     const el      = document.getElementById('res-desglose');
@@ -148,10 +151,9 @@ function renderResumen() {
     `).join('');
 }
 
-function borrarVentasHoy() {
+async function borrarVentasHoy() {
     if (!confirm('Seguro que quieres borrar todas las ventas de hoy?')) return;
-    ventas = ventas.filter(v => v.fecha !== fechaKey);
-    save();
-    renderResumen();
+    await fetch(`/api/ventas?fecha=${fechaKey}`, { method: 'DELETE' });
+    await renderResumen();
     toast('Ventas del dia borradas');
 }

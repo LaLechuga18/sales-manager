@@ -1,7 +1,7 @@
 // ── Estado compartido ────────────────────────────────────
-let productos = JSON.parse(localStorage.getItem('gs_productos') || '[]');
-let ventas    = JSON.parse(localStorage.getItem('gs_ventas')    || '[]');
-let clientes  = JSON.parse(localStorage.getItem('gs_clientes')  || '[]');
+let productos = [];
+let ventas    = [];
+let clientes  = [];
 
 // ── Fecha actual ─────────────────────────────────────────
 const hoy      = new Date();
@@ -12,13 +12,6 @@ document.getElementById('res-fecha').textContent   = fechaStr;
 
 function ventasHoy() {
     return ventas.filter(v => v.fecha === fechaKey);
-}
-
-// ── Guardar ──────────────────────────────────────────────
-function save() {
-    localStorage.setItem('gs_productos', JSON.stringify(productos));
-    localStorage.setItem('gs_ventas',    JSON.stringify(ventas));
-    localStorage.setItem('gs_clientes',  JSON.stringify(clientes));
 }
 
 // ── Toast ─────────────────────────────────────────────────

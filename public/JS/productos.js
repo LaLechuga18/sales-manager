@@ -1,24 +1,31 @@
 // ── Productos ─────────────────────────────────────────────
 
-function agregarProducto() {
+async function agregarProducto() {
     const nombre = document.getElementById('prod-nombre').value.trim();
     const tipo   = document.getElementById('prod-tipo').value;
     const precio = parseFloat(document.getElementById('prod-precio').value);
     if (!nombre) return alert('Escribe el nombre del producto.');
     if (isNaN(precio) || precio < 0) return alert('Precio invalido.');
 
-    const duplicado = productos.find(p => p.nombre.toLowerCase() === nombre.toLowerCase());
-    if (duplicado) return alert(`Ya existe un producto llamado "${duplicado.nombre}".`);
+    const res = await fetch('/api/productos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre, tipo, precio })
+    });
+    const data = await res.json();
+    if (data.error) return alert(data.error);
 
-    productos.push({ id: Date.now(), nombre, tipo, precio });
-    save();
     document.getElementById('prod-nombre').value = '';
     document.getElementById('prod-precio').value = '';
-    renderProductos();
+    await renderProductos();
+    poblarSelectProductos();
     toast('Producto agregado');
 }
 
-function renderProductos() {
+async function renderProductos() {
+    const res = await fetch('/api/productos');
+    productos = await res.json();
+
     const el = document.getElementById('lista-productos');
     if (!productos.length) {
         el.innerHTML = '<div class="empty"><div class="empty-icon">📦</div>Sin productos aun.<br>Agrega el primero arriba.</div>';
@@ -54,7 +61,7 @@ function cerrarModal() {
     document.getElementById('modal-editar').classList.remove('open');
 }
 
-function guardarEdicion() {
+async function guardarEdicion() {
     const id     = editandoId;
     const nombre = document.getElementById('edit-nombre').value.trim();
     const tipo   = document.getElementById('edit-tipo').value;
@@ -69,23 +76,23 @@ function guardarEdicion() {
     if (!nombre) return alert('El nombre no puede estar vacio.');
     if (isNaN(precio) || precio < 0) return alert('Precio invalido.');
 
-    const idx = productos.findIndex(p => String(p.id) === String(id));
-    if (idx === -1) return;
-    productos[idx] = { ...productos[idx], nombre, tipo, precio };
-    save();
+    await fetch(`/api/productos/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre, tipo, precio })
+    });
     cerrarModal();
-    renderProductos();
+    await renderProductos();
     poblarSelectProductos();
     toast('Producto actualizado');
 }
 
-function eliminarDesdeModal() {
+async function eliminarDesdeModal() {
     if (!editandoId) return;
     if (!confirm('Eliminar este producto?')) return;
-    productos = productos.filter(p => String(p.id) !== String(editandoId));
-    save();
+    await fetch(`/api/productos/${editandoId}`, { method: 'DELETE' });
     cerrarModal();
-    renderProductos();
+    await renderProductos();
     poblarSelectProductos();
     toast('Eliminado');
 }
