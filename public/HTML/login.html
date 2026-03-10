@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login — RegistroVentas</title>
+    <link rel="stylesheet" href="/CSS/style.css">
+    <style>
+        body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+        .login-box { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px 28px; width: 100%; max-width: 360px; }
+        .login-title { font-family: 'Syne', sans-serif; font-size: 1.5rem; font-weight: 800; color: var(--accent); margin-bottom: 6px; }
+        .login-sub { color: var(--muted); font-size: 0.85rem; margin-bottom: 24px; }
+        .error-msg { color: var(--red); font-size: 0.85rem; margin-bottom: 12px; display: none; }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <div class="login-title">RegistroVentas</div>
+        <div class="login-sub">Inicia sesión para continuar</div>
+        <div class="error-msg" id="error-msg"></div>
+        <label>Usuario</label>
+        <input type="text" id="username" placeholder="usuario" />
+        <label>Contraseña</label>
+        <input type="password" id="password" placeholder="••••••••" />
+        <button class="btn btn-primary" onclick="login()">Entrar</button>
+    </div>
+    <script>
+        async function login() {
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const errEl = document.getElementById('error-msg');
+            errEl.style.display = 'none';
+
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            const data = await res.json();
+            if (data.error) {
+                errEl.textContent = data.error;
+                errEl.style.display = 'block';
+                return;
+            }
+            window.location.href = '/';
+        }
+
+        // Login con Enter
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Enter') login();
+        });
+    </script>
+</body>
+</html>
