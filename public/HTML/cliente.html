@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Cuenta</title>
+    <link rel="stylesheet" href="/CSS/style.css">
+</head>
+<body>
+    <header>
+        <div class="logo">Mi<span>Cuenta</span></div>
+        <button onclick="logout()" style="margin-left:auto;background:transparent;border:1.5px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;">
+            Salir
+        </button>
+    </header>
+
+    <main style="max-width:680px;margin:0 auto;padding:20px 16px 100px;">
+        <p class="section-title" id="titulo-cliente">Mi cuenta</p>
+
+        <div class="summary-grid">
+            <div class="chip"><span class="chip-val" id="cli-n-cargos">0</span><span class="chip-label">Cargos</span></div>
+            <div class="chip"><span class="chip-val" id="cli-total" style="color:var(--red)">$0</span><span class="chip-label">Total</span></div>
+        </div>
+
+        <p class="section-title">Detalle de cargos</p>
+        <div class="card" id="cli-lista-cargos">
+            <div class="empty"><div class="empty-icon">🐓</div>Sin cargos por el momento.</div>
+        </div>
+    </main>
+
+    <script>
+        async function init() {
+            const res = await fetch('/api/auth/me');
+            if (!res.ok) return window.location.href = '/login';
+            const usuario = await res.json();
+            if (usuario.rol === 'admin') return window.location.href = '/';
+
+            // Cargar cuenta del cliente
+            const resCli = await fetch(`/api/clientes/${usuario.cliente_id}`);
+            const cliente = await resCli.json();
+
+            document.getElementById('titulo-cliente').textContent = `Cuenta de: ${cliente.nombre}`;
+            const total = cliente.cargos.reduce((a, x) => a + x.total, 0);
+            document.getElementById('cli-n-cargos').textContent = cliente.cargos.length;
+            document.getElementById('cli-total').textContent = '$' + total.toFixed(2);
+
+            const el = document.getElementById('cli-lista-cargos');
+            if (!cliente.cargos.length) {
+                el.innerHTML = '<div class="empty"><div class="empty-icon">🐓</div>Sin cargos por el momento.</div>';
+                return;
+            }
+            el.innerHTML = [...cliente.cargos].reverse().map(x => `
+                <div class="venta-item">
+                    <div class="venta-info">
+                        <div class="venta-nombre">${x.producto_nombre}</div>
+                        <div class="venta-detalle">${x.cantidad} ${x.unidad} x $${x.precio.toFixed(2)} · ${x.fecha}${x.nota ? ' · ' + x.nota : ''}</div>
+                    </div>
+                    <span class="venta-total">$${x.total.toFixed(2)}</span>
+                </div>
+            `).join('');
+        }
+
+        async function logout() {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            window.location.href = '/login';
+        }
+
+        init();
+    </script>
+</body>
+</html>

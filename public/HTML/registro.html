@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro — RegistroVentas</title>
+    <link rel="stylesheet" href="/CSS/style.css">
+    <style>
+        body { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+        .login-box { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px 28px; width: 100%; max-width: 360px; }
+        .login-title { font-family: 'Syne', sans-serif; font-size: 1.5rem; font-weight: 800; color: var(--accent); margin-bottom: 6px; }
+        .login-sub { color: var(--muted); font-size: 0.85rem; margin-bottom: 24px; }
+        .error-msg { color: var(--red); font-size: 0.85rem; margin-bottom: 12px; display: none; }
+        .success-msg { color: var(--green); font-size: 0.85rem; margin-bottom: 12px; display: none; }
+        .link { color: var(--accent); font-size: 0.85rem; text-align: center; margin-top: 16px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <div class="login-title">Crear cuenta</div>
+        <div class="login-sub">Tu cuenta será activada por el administrador</div>
+        <div class="error-msg" id="error-msg"></div>
+        <div class="success-msg" id="success-msg"></div>
+        <label>Nombre completo</label>
+        <input type="text" id="nombre" placeholder="Ej: Juan Lopez" />
+        <label>Usuario</label>
+        <input type="text" id="username" placeholder="usuario" />
+        <label>Teléfono (opcional)</label>
+        <input type="text" id="telefono" placeholder="Ej: 555-1234" />
+        <label>Contraseña</label>
+        <input type="password" id="password" placeholder="••••••••" />
+        <button class="btn btn-primary" onclick="registro()">Registrarse</button>
+        <div class="link" onclick="window.location.href='/login'">¿Ya tienes cuenta? Inicia sesión</div>
+	<div style="color:var(--muted);font-size:0.85rem;text-align:center;margin-top:16px;">
+    ¿No tienes cuenta? <a href="/registro" style="color:var(--accent);">Regístrate</a>
+</div>
+    </div>
+    <script>
+        async function registro() {
+            const nombre   = document.getElementById('nombre').value.trim();
+            const telefono = document.getElementById('telefono').value.trim();
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const errEl    = document.getElementById('error-msg');
+            const sucEl    = document.getElementById('success-msg');
+            errEl.style.display = 'none';
+            sucEl.style.display = 'none';
+
+            if (!nombre || !username || !password) {
+                errEl.textContent = 'Completa todos los campos.';
+                errEl.style.display = 'block';
+                return;
+            }
+
+            const res = await fetch('/api/auth/registro', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nombre, username, password, telefono })
+            });
+            const data = await res.json();
+            if (data.error) {
+                errEl.textContent = data.error;
+                errEl.style.display = 'block';
+                return;
+            }
+            sucEl.textContent = 'Cuenta creada. Espera a que el administrador la apruebe.';
+            sucEl.style.display = 'block';
+            document.getElementById('nombre').value = '';
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+        }
+    </script>
+</body>
+</html>

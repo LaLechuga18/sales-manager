@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>Panel de Admin</title>
     <link rel="stylesheet" href="/CSS/style.css">
 </head>
 
@@ -13,6 +13,9 @@
     <header>
         <div class="logo">Registro<span>Ventas</span></div>
         <div class="date-badge" id="header-date"></div>
+        <button onclick="logout()" style="background:transparent;border:1.5px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;">
+            Salir
+        </button>
     </header>
 
     <nav class="tabs">
@@ -21,6 +24,7 @@
         <button onclick="showTab('productos')">Productos</button>
         <button onclick="showTab('resumen')">Resumen</button>
         <button onclick="showTab('clientes')">Clientes</button>
+        <button onclick="showTab('usuarios')">Usuarios</button>
     </nav>
 
     <main>
@@ -142,26 +146,31 @@
             </button>
         </div>
 
+        <!-- ══ TAB: CLIENTES ══ -->
+        <div id="tab-clientes" class="page">
+            <p class="section-title">Clientes</p>
+            <div class="card">
+                <label>Nombre del cliente</label>
+                <input type="text" id="cli-nombre" placeholder="Ej: Juan Lopez" />
+                <label>Telefono (opcional)</label>
+                <input type="text" id="cli-tel" placeholder="Ej: 555-1234" />
+                <button class="btn btn-primary" onclick="agregarCliente()">Agregar cliente</button>
+            </div>
+            <p class="section-title" style="margin-top:20px">Clientes registrados</p>
+            <div class="card" id="lista-clientes">
+                <div class="empty"><div class="empty-icon">👤</div>Sin clientes aun.</div>
+            </div>
+        </div>
+
+        <!-- ══ TAB: USUARIOS ══ -->
+        <div id="tab-usuarios" class="page">
+            <p class="section-title">Usuarios pendientes</p>
+            <div class="card" id="lista-pendientes">
+                <div class="empty"><div class="empty-icon">👥</div>Sin usuarios pendientes.</div>
+            </div>
+        </div>
+
     </main>
-
-    <!-- ══ TAB: CLIENTES ══ -->
-    <div id="tab-clientes" class="page" style="max-width:680px;margin:0 auto;padding:20px 16px 100px;">
-        <p class="section-title">Clientes</p>
-
-        <!-- Agregar cliente -->
-        <div class="card">
-            <label>Nombre del cliente</label>
-            <input type="text" id="cli-nombre" placeholder="Ej: Juan Lopez" />
-            <label>Telefono (opcional)</label>
-            <input type="text" id="cli-tel" placeholder="Ej: 555-1234" />
-            <button class="btn btn-primary" onclick="agregarCliente()">Agregar cliente</button>
-        </div>
-
-        <p class="section-title" style="margin-top:20px">Clientes registrados</p>
-        <div class="card" id="lista-clientes">
-            <div class="empty"><div class="empty-icon">👤</div>Sin clientes aun.</div>
-        </div>
-    </div>
 
     <!-- ══ MODAL CUENTA CLIENTE ══ -->
     <div class="modal-overlay" id="modal-cliente">
@@ -170,8 +179,6 @@
                 <div class="modal-title" id="modal-cli-nombre" style="margin:0"></div>
                 <button class="btn-cancel" onclick="cerrarModalCliente()" style="width:auto;padding:6px 14px;">X</button>
             </div>
-
-            <!-- Registrar venta al cliente -->
             <label>Producto</label>
             <select id="cli-venta-producto" onchange="onCliProductoChange()">
                 <option value="">— Selecciona producto —</option>
@@ -197,16 +204,12 @@
             <label>Nota (opcional)</label>
             <input type="text" id="cli-venta-nota" placeholder="Ej: precio especial..." />
             <button class="btn btn-primary" onclick="registrarVentaCliente()">Agregar a cuenta</button>
-
             <hr style="border-color:var(--border);margin:18px 0 14px;">
-
-            <!-- Lista de cargos -->
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
                 <p class="section-title" style="margin:0">Cuenta acumulada</p>
                 <span id="modal-cli-total" style="font-family:'Syne',sans-serif;font-weight:800;font-size:1.2rem;color:var(--red)">$0.00</span>
             </div>
             <div id="modal-cli-ventas"></div>
-
             <hr style="border-color:var(--border);margin:14px 0;">
             <div style="display:flex;gap:10px;">
                 <button class="btn btn-primary" style="background:var(--green);flex:1;" onclick="saldarCuenta()">Marcar como pagado</button>
@@ -250,6 +253,7 @@
     <script src="/JS/productos.js"></script>
     <script src="/JS/ventas.js"></script>
     <script src="/JS/clientes.js"></script>
+    <script src="/JS/usuarios.js"></script>
 </body>
 
 </html>

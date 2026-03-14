@@ -10,6 +10,13 @@ router.get('/', (req, res) => {
     res.json(clientes);
 });
 
+router.get('/:id', (req, res) => {
+    const cliente = db.prepare('SELECT * FROM clientes WHERE id = ?').get(req.params.id);
+    if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado.' });
+    cliente.cargos = db.prepare('SELECT * FROM cargos WHERE cliente_id = ?').all(cliente.id);
+    res.json(cliente);
+});
+
 router.post('/', (req, res) => {
     const { nombre, tel } = req.body;
     if (!nombre) return res.status(400).json({ error: 'Falta el nombre.' });

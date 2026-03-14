@@ -27,16 +27,25 @@ function showTab(name) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
     document.getElementById('tab-' + name).classList.add('active');
-    const idx = ['ventas', 'nueva-venta', 'productos', 'resumen', 'clientes'].indexOf(name);
+    const idx = ['ventas', 'nueva-venta', 'productos', 'resumen', 'clientes', 'usuarios'].indexOf(name);
     document.querySelectorAll('nav.tabs button')[idx].classList.add('active');
     if (name === 'ventas')      renderVentas();
     if (name === 'productos')   renderProductos();
     if (name === 'resumen')     renderResumen();
     if (name === 'nueva-venta') poblarSelectProductos();
     if (name === 'clientes')    renderClientes();
+	if (name === 'usuarios') renderPendientes();
 }
 
-// ── Init ──────────────────────────────────────────────────
-renderVentas();
-renderProductos();
-poblarSelectProductos();
+async function logout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/login';
+}
+
+
+window.addEventListener('load', () => {
+    renderVentas();
+    renderProductos();
+    poblarSelectProductos();
+    renderClientes();
+});
