@@ -28,19 +28,32 @@ function requireAdmin(req, res, next) {
 // Rutas públicas
 app.use('/api/auth', require('./routes/auth'));
 
-// Rutas protegidas
+// Rutas protegidas (admin y cliente autenticado)
 app.use('/api/productos', requireAuth, require('./routes/productos'));
 app.use('/api/ventas',    requireAuth, require('./routes/ventas'));
 app.use('/api/clientes',  requireAuth, require('./routes/clientes'));
 
-// Servir login como página principal
+// Página de login
 app.get('/login', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'HTML', 'login.html'));
 });
 
-// Proteger el frontend — redirigir a login si no está autenticado
+// Página de registro
+app.get('/registro', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'HTML', 'registro.html'));
+});
+
+// Página del cliente — solo para usuarios con rol 'cliente'
+app.get('/cliente', (req, res) => {
+    if (!req.session.usuario) return res.redirect('/login');
+    if (req.session.usuario.rol === 'admin') return res.redirect('/');
+    res.sendFile(path.join(__dirname, 'public', 'HTML', 'cliente.html'));
+});
+
+// Raíz — redirige según rol
 app.get('/', (req, res) => {
     if (!req.session.usuario) return res.redirect('/login');
+    if (req.session.usuario.rol === 'cliente') return res.redirect('/cliente');
     res.sendFile(path.join(__dirname, 'public', 'HTML', 'index.html'));
 });
 

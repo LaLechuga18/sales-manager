@@ -29,8 +29,14 @@ router.post('/', (req, res) => {
 });
 
 router.delete('/:id', (req, res) => {
-    db.prepare('DELETE FROM cargos WHERE cliente_id = ?').run(req.params.id);
-    db.prepare('DELETE FROM clientes WHERE id = ?').run(req.params.id);
+    const id = req.params.id;
+    // Eliminar en orden para respetar foreign keys:
+    // 1. cargos del cliente
+    db.prepare('DELETE FROM cargos WHERE cliente_id = ?').run(id);
+    // 2. usuario asociado (si existe)
+    db.prepare('DELETE FROM usuarios WHERE cliente_id = ?').run(id);
+    // 3. el cliente
+    db.prepare('DELETE FROM clientes WHERE id = ?').run(id);
     res.json({ ok: true });
 });
 

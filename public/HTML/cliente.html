@@ -5,6 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mi Cuenta</title>
     <link rel="stylesheet" href="/CSS/style.css">
+    <style>
+        .section-divider {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 24px 0;
+        }
+        .btn-print {
+            background: transparent;
+            border: 1.5px solid var(--border);
+            color: var(--text);
+            width: 100%;
+            margin-top: 12px;
+        }
+        .btn-print:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        .form-title {
+            font-family: 'Syne', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 14px;
+        }
+    </style>
 </head>
 <body>
     <header>
@@ -15,6 +40,7 @@
     </header>
 
     <main style="max-width:680px;margin:0 auto;padding:20px 16px 100px;">
+
         <p class="section-title" id="titulo-cliente">Mi cuenta</p>
 
         <div class="summary-grid">
@@ -22,34 +48,107 @@
             <div class="chip"><span class="chip-val" id="cli-total" style="color:var(--red)">$0</span><span class="chip-label">Total</span></div>
         </div>
 
-        <p class="section-title">Detalle de cargos</p>
-        <div class="card" id="cli-lista-cargos">
-            <div class="empty"><div class="empty-icon">🐓</div>Sin cargos por el momento.</div>
+        <!-- ── Agregar cargo ── -->
+        <div class="card">
+            <div class="form-title">Agregar producto a mi cuenta</div>
+
+            <label>Producto</label>
+            <select id="cli-producto" onchange="onProductoChange()">
+                <option value="">— Selecciona un producto —</option>
+            </select>
+
+            <div id="campo-pieza">
+                <label>Cantidad (piezas)</label>
+                <input type="number" id="cli-cantidad" min="1" placeholder="Ej: 2" oninput="calcularTotal()" />
+            </div>
+
+            <div id="campo-kilo" style="display:none">
+                <label>Kilogramos</label>
+                <input type="number" id="cli-kilos" min="0.1" step="0.1" placeholder="Ej: 1.5" oninput="calcularTotal()" />
+            </div>
+
+            <div class="row2">
+                <div>
+                    <label>Precio</label>
+                    <input type="number" id="cli-precio" min="0" step="0.5" placeholder="$0.00" oninput="calcularTotal()" />
+                </div>
+                <div>
+                    <label>Total</label>
+                    <input type="number" id="cli-total-calc" readonly placeholder="$0.00" style="color:var(--green);font-weight:700;" />
+                </div>
+            </div>
+
+            <label>Nota (opcional)</label>
+            <input type="text" id="cli-nota" placeholder="Ej: precio acordado, variante..." />
+
+            <button class="btn btn-primary" onclick="agregarCargo()">Agregar a mi cuenta</button>
         </div>
+
+        <!-- ── Lista de cargos ── -->
+        <p class="section-title">Detalle de cargos</p>
+        <div class="card">
+            <div id="cli-lista-cargos">
+                <div class="empty"><div class="empty-icon">🐓</div>Sin cargos por el momento.</div>
+            </div>
+        </div>
+
+        <button class="btn btn-print" onclick="imprimirPDF()">🖨️ Imprimir estado de cuenta</button>
+
     </main>
 
+    <div id="toast">Guardado</div>
+
     <script>
+        let clienteData = null;
+        let productosDisponibles = [];
+
+        function toast(msg = 'Guardado') {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2200);
+        }
+
         async function init() {
             const res = await fetch('/api/auth/me');
             if (!res.ok) return window.location.href = '/login';
             const usuario = await res.json();
             if (usuario.rol === 'admin') return window.location.href = '/';
 
-            // Cargar cuenta del cliente
-            const resCli = await fetch(`/api/clientes/${usuario.cliente_id}`);
-            const cliente = await resCli.json();
+            // Cargar productos disponibles para el select
+            const resProd = await fetch('/api/productos');
+            if (resProd.ok) {
+                productosDisponibles = await resProd.json();
+                const sel = document.getElementById('cli-producto');
+                sel.innerHTML = '<option value="">— Selecciona un producto —</option>' +
+                    productosDisponibles.map(p =>
+                        `<option value="${p.id}">${p.nombre} (${p.tipo === 'kilo' ? 'kg' : 'pieza'}) — $${p.precio.toFixed(2)}</option>`
+                    ).join('');
+            }
 
-            document.getElementById('titulo-cliente').textContent = `Cuenta de: ${cliente.nombre}`;
-            const total = cliente.cargos.reduce((a, x) => a + x.total, 0);
-            document.getElementById('cli-n-cargos').textContent = cliente.cargos.length;
+            await cargarCuenta(usuario.cliente_id);
+        }
+
+        async function cargarCuenta(clienteId) {
+            const resCli = await fetch(`/api/clientes/${clienteId}`);
+            if (!resCli.ok) return;
+            clienteData = await resCli.json();
+
+            document.getElementById('titulo-cliente').textContent = `Cuenta de: ${clienteData.nombre}`;
+            const total = clienteData.cargos.reduce((a, x) => a + x.total, 0);
+            document.getElementById('cli-n-cargos').textContent = clienteData.cargos.length;
             document.getElementById('cli-total').textContent = '$' + total.toFixed(2);
 
+            renderCargos();
+        }
+
+        function renderCargos() {
             const el = document.getElementById('cli-lista-cargos');
-            if (!cliente.cargos.length) {
+            if (!clienteData.cargos.length) {
                 el.innerHTML = '<div class="empty"><div class="empty-icon">🐓</div>Sin cargos por el momento.</div>';
                 return;
             }
-            el.innerHTML = [...cliente.cargos].reverse().map(x => `
+            el.innerHTML = [...clienteData.cargos].reverse().map(x => `
                 <div class="venta-item">
                     <div class="venta-info">
                         <div class="venta-nombre">${x.producto_nombre}</div>
@@ -58,6 +157,145 @@
                     <span class="venta-total">$${x.total.toFixed(2)}</span>
                 </div>
             `).join('');
+        }
+
+        function onProductoChange() {
+            const id   = document.getElementById('cli-producto').value;
+            const prod = productosDisponibles.find(p => String(p.id) === String(id));
+            if (!prod) return;
+            document.getElementById('cli-precio').value = prod.precio;
+            const esKilo = prod.tipo === 'kilo';
+            document.getElementById('campo-pieza').style.display = esKilo ? 'none' : 'block';
+            document.getElementById('campo-kilo').style.display  = esKilo ? 'block' : 'none';
+            calcularTotal();
+        }
+
+        function calcularTotal() {
+            const id   = document.getElementById('cli-producto').value;
+            const prod = productosDisponibles.find(p => String(p.id) === String(id));
+            const precio = parseFloat(document.getElementById('cli-precio').value) || 0;
+            let qty = 0;
+            if (prod && prod.tipo === 'kilo') {
+                qty = parseFloat(document.getElementById('cli-kilos').value) || 0;
+            } else {
+                qty = parseFloat(document.getElementById('cli-cantidad').value) || 0;
+            }
+            document.getElementById('cli-total-calc').value = (precio * qty).toFixed(2);
+        }
+
+        async function agregarCargo() {
+            const id   = document.getElementById('cli-producto').value;
+            const prod = productosDisponibles.find(p => String(p.id) === String(id));
+            if (!prod) return alert('Selecciona un producto.');
+
+            const precio = parseFloat(document.getElementById('cli-precio').value);
+            const nota   = document.getElementById('cli-nota').value.trim();
+            let qty, unidad;
+
+            if (prod.tipo === 'kilo') {
+                qty    = parseFloat(document.getElementById('cli-kilos').value);
+                unidad = 'kg';
+            } else {
+                qty    = parseFloat(document.getElementById('cli-cantidad').value);
+                unidad = qty === 1 ? 'pieza' : 'piezas';
+            }
+
+            if (!qty || qty <= 0) return alert('Ingresa una cantidad válida.');
+            if (!precio || precio <= 0) return alert('Ingresa un precio válido.');
+
+            const fecha = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
+
+            const res = await fetch(`/api/clientes/${clienteData.id}/cargos`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    fecha,
+                    producto_nombre: prod.nombre,
+                    cantidad: qty,
+                    unidad,
+                    precio,
+                    total: precio * qty,
+                    nota
+                })
+            });
+
+            if (!res.ok) {
+                const data = await res.json();
+                return alert(data.error || 'Error al agregar cargo.');
+            }
+
+            // Limpiar formulario
+            document.getElementById('cli-producto').value   = '';
+            document.getElementById('cli-cantidad').value   = '';
+            document.getElementById('cli-kilos').value      = '';
+            document.getElementById('cli-precio').value     = '';
+            document.getElementById('cli-total-calc').value = '';
+            document.getElementById('cli-nota').value       = '';
+            document.getElementById('campo-pieza').style.display = 'block';
+            document.getElementById('campo-kilo').style.display  = 'none';
+
+            await cargarCuenta(clienteData.id);
+            toast('Cargo agregado ✓');
+        }
+
+        function imprimirPDF() {
+            if (!clienteData || !clienteData.cargos.length) {
+                return alert('No hay cargos para imprimir.');
+            }
+
+            const cargos = clienteData.cargos;
+            const total  = cargos.reduce((a, x) => a + x.total, 0);
+            const filas  = cargos.map(x => `
+                <tr>
+                    <td>${x.fecha}</td>
+                    <td>${x.producto_nombre}${x.nota ? ' (' + x.nota + ')' : ''}</td>
+                    <td>${x.cantidad} ${x.unidad}</td>
+                    <td style="text-align:right;">$${x.total.toFixed(2)}</td>
+                </tr>
+            `).join('');
+
+            const html = `<!DOCTYPE html>
+                <html lang="es">
+                <head>
+                    <meta charset="UTF-8">
+                    <title>Cuenta - ${clienteData.nombre}</title>
+                    <style>
+                        body { font-family: Arial, sans-serif; padding: 40px; color: #111; }
+                        h1 { font-size: 1.4rem; margin-bottom: 4px; }
+                        .sub { color: #666; font-size: 0.9rem; margin-bottom: 24px; }
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+                        th { background: #f0f0f0; padding: 10px 8px; text-align: left; font-size: 0.85rem; }
+                        td { padding: 9px 8px; border-bottom: 1px solid #e0e0e0; font-size: 0.9rem; }
+                        .total-row td { font-weight: bold; border-top: 2px solid #111; border-bottom: none; padding-top: 12px; }
+                        .footer { margin-top: 40px; font-size: 0.8rem; color: #999; }
+                    </style>
+                </head>
+                <body>
+                    <h1>Cuenta de: ${clienteData.nombre}</h1>
+                    <div class="sub">${clienteData.telefono ? 'Tel: ' + clienteData.telefono + ' &nbsp;|&nbsp; ' : ''}Generado el ${new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Fecha</th><th>Producto</th><th>Cantidad</th><th style="text-align:right;">Importe</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${filas}
+                            <tr class="total-row">
+                                <td colspan="3">Total acumulado</td>
+                                <td style="text-align:right;">$${total.toFixed(2)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="footer">RegistroVentas</div>
+                </body>
+                </html>`;
+
+            const ventana = window.open('', '_blank');
+            ventana.document.write(html);
+            ventana.document.close();
+            ventana.focus();
+            ventana.print();
         }
 
         async function logout() {

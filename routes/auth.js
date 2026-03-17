@@ -42,7 +42,6 @@ router.post('/registro', (req, res) => {
     const dup = db.prepare('SELECT id FROM usuarios WHERE username = ?').get(username);
     if (dup) return res.status(400).json({ error: `El usuario "${username}" ya existe.` });
 
-    // Crear cliente asociado
     const cliente = db.prepare('INSERT INTO clientes (nombre, telefono) VALUES (?, ?)').run(nombre, telefono || '');
     const hash = bcrypt.hashSync(password, 10);
     db.prepare(
@@ -50,6 +49,47 @@ router.post('/registro', (req, res) => {
     ).run(username, hash, 'cliente', 'pendiente', cliente.lastInsertRowid);
 
     res.json({ ok: true });
+});
+
+// Admin — crear usuario para un cliente ya existente
+router.post('/usuarios/crear', (req, res) => {
+    if (!req.session.usuario || req.session.usuario.rol !== 'admin') {
+        return res.status(403).json({ error: 'Acceso denegado.' });
+    }
+
+    const { cliente_id, username, password } = req.body;
+    if (!cliente_id || !username || !password) {
+        return res.status(400).json({ error: 'Faltan datos.' });
+    }
+
+    const cliente = db.prepare('SELECT * FROM clientes WHERE id = ?').get(cliente_id);
+    if (!cliente) return res.status(404).json({ error: 'Cliente no encontrado.' });
+
+    const yaExiste = db.prepare('SELECT id FROM usuarios WHERE cliente_id = ?').get(cliente_id);
+    if (yaExiste) return res.status(400).json({ error: 'Este cliente ya tiene un usuario asignado.' });
+
+    const dupUser = db.prepare('SELECT id FROM usuarios WHERE username = ?').get(username);
+    if (dupUser) return res.status(400).json({ error: `El usuario "${username}" ya existe.` });
+
+    const hash = bcrypt.hashSync(password, 10);
+    db.prepare(
+        'INSERT INTO usuarios (username, password, rol, estado, cliente_id) VALUES (?, ?, ?, ?, ?)'
+    ).run(username, hash, 'cliente', 'activo', cliente_id);
+
+    res.json({ ok: true });
+});
+
+// Admin — consultar si un cliente ya tiene usuario asignado
+router.get('/cliente-usuario/:clienteId', (req, res) => {
+    if (!req.session.usuario || req.session.usuario.rol !== 'admin') {
+        return res.status(403).json({ error: 'Acceso denegado.' });
+    }
+    const usuario = db.prepare('SELECT id, username FROM usuarios WHERE cliente_id = ?').get(req.params.clienteId);
+    if (usuario) {
+        res.json({ tiene_usuario: true, username: usuario.username });
+    } else {
+        res.json({ tiene_usuario: false });
+    }
 });
 
 // Admin — obtener usuarios pendientes
@@ -70,7 +110,7 @@ router.put('/usuarios/:id/aprobar', (req, res) => {
     res.json({ ok: true });
 });
 
-// Admin — rechazar usuario
+// Admin — rechazar/eliminar usuario
 router.delete('/usuarios/:id', (req, res) => {
     if (!req.session.usuario || req.session.usuario.rol !== 'admin') {
         return res.status(403).json({ error: 'Acceso denegado.' });

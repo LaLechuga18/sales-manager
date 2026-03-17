@@ -50,9 +50,20 @@ db.exec(`
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT NOT NULL UNIQUE,
         password TEXT NOT NULL,
-        rol TEXT NOT NULL
+        rol TEXT NOT NULL,
+        estado TEXT NOT NULL DEFAULT 'activo',
+        cliente_id INTEGER
     );
 `);
+
+// Migración: agregar columnas faltantes si la tabla ya existía sin ellas
+try {
+    db.exec(`ALTER TABLE usuarios ADD COLUMN estado TEXT NOT NULL DEFAULT 'activo'`);
+} catch (e) { /* columna ya existe */ }
+
+try {
+    db.exec(`ALTER TABLE usuarios ADD COLUMN cliente_id INTEGER`);
+} catch (e) { /* columna ya existe */ }
 
 console.log('Base de datos lista');
 module.exports = db;
