@@ -48,4 +48,5 @@ window.addEventListener('load', () => {
     renderProductos();
     poblarSelectProductos();
     renderClientes();
+    cargarClientes();
 });

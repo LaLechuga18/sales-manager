@@ -2,17 +2,29 @@
 
 let clienteActivoId = null;
 
-function agregarCliente() {
+async function cargarClientes() {
+    const res = await fetch('/api/clientes');
+    if (!res.ok) return;
+    clientes = await res.json();
+    renderClientes();
+}
+
+async function agregarCliente() {
     const nombre = document.getElementById('cli-nombre').value.trim();
     const tel    = document.getElementById('cli-tel').value.trim();
     if (!nombre) return alert('Escribe el nombre del cliente.');
-    const dup = clientes.find(c => c.nombre.toLowerCase() === nombre.toLowerCase());
-    if (dup) return alert(`Ya existe un cliente llamado "${dup.nombre}".`);
-    clientes.push({ id: Date.now(), nombre, tel, cargos: [] });
-    save();
+
+    const res = await fetch('/api/clientes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nombre, tel })
+    });
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || 'Error al agregar cliente.');
+
     document.getElementById('cli-nombre').value = '';
     document.getElementById('cli-tel').value    = '';
-    renderClientes();
+    await cargarClientes();
     toast('Cliente agregado');
 }
 
@@ -23,20 +35,22 @@ function renderClientes() {
         return;
     }
     el.innerHTML = clientes.map(c => {
-        const total = c.cargos.reduce((a, x) => a + x.total, 0);
+        const total = (c.cargos || []).reduce((a, x) => a + x.total, 0);
         return `
         <div class="prod-item" style="cursor:pointer;" onclick="abrirCliente('${c.id}')">
-            <span class="prod-name">${c.nombre}${c.tel ? ' · ' + c.tel : ''}</span>
+            <span class="prod-name">${c.nombre}${c.telefono ? ' · ' + c.telefono : ''}</span>
             <span class="prod-price" style="color:var(--red);">$${total.toFixed(2)}</span>
-            <span style="font-size:0.75rem;color:var(--muted);">${c.cargos.length} cargos</span>
+            <span style="font-size:0.75rem;color:var(--muted);">${(c.cargos || []).length} cargos</span>
         </div>`;
     }).join('');
 }
 
-function abrirCliente(id) {
-    const c = clientes.find(c => String(c.id) === String(id));
-    if (!c) return;
+async function abrirCliente(id) {
+    const res = await fetch(`/api/clientes/${id}`);
+    if (!res.ok) return;
+    const c = await res.json();
     clienteActivoId = id;
+
     document.getElementById('modal-cli-nombre').textContent = c.nombre;
 
     const sel = document.getElementById('cli-venta-producto');
@@ -89,9 +103,7 @@ function calcularTotalCli() {
     document.getElementById('cli-venta-total').value = (precio * qty).toFixed(2);
 }
 
-function registrarVentaCliente() {
-    const c = clientes.find(c => String(c.id) === String(clienteActivoId));
-    if (!c) return;
+async function registrarVentaCliente() {
     const id   = document.getElementById('cli-venta-producto').value;
     const prod = productos.find(p => String(p.id) === String(id));
     if (!prod) return alert('Selecciona un producto.');
@@ -108,15 +120,23 @@ function registrarVentaCliente() {
     if (!qty || qty <= 0) return alert('Ingresa una cantidad valida.');
     if (!precio || precio <= 0) return alert('Ingresa un precio valido.');
 
-    c.cargos.push({
-        id: Date.now(),
-        fecha: new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }),
-        productoNombre: prod.nombre,
-        qty, unidad, precio,
-        total: precio * qty,
-        nota
+    const fecha = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' });
+
+    const res = await fetch(`/api/clientes/${clienteActivoId}/cargos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            fecha,
+            producto_nombre: prod.nombre,
+            cantidad: qty,
+            unidad,
+            precio,
+            total: precio * qty,
+            nota
+        })
     });
-    save();
+    const data = await res.json();
+    if (!res.ok) return alert(data.error || 'Error al agregar cargo.');
 
     document.getElementById('cli-venta-producto').value = '';
     document.getElementById('cli-venta-cantidad').value = '';
@@ -127,24 +147,27 @@ function registrarVentaCliente() {
     document.getElementById('cli-campo-pieza').style.display = 'block';
     document.getElementById('cli-campo-kilo').style.display  = 'none';
 
-    renderCargosModal(c);
+    // Recargar el cliente actualizado para reflejar el nuevo cargo
+    await abrirCliente(clienteActivoId);
+    await cargarClientes();
     toast('Cargo agregado a la cuenta');
 }
 
 function renderCargosModal(c) {
-    const total = c.cargos.reduce((a, x) => a + x.total, 0);
+    const cargos = c.cargos || [];
+    const total = cargos.reduce((a, x) => a + x.total, 0);
     document.getElementById('modal-cli-total').textContent = '$' + total.toFixed(2);
 
     const el = document.getElementById('modal-cli-ventas');
-    if (!c.cargos.length) {
+    if (!cargos.length) {
         el.innerHTML = '<div class="empty" style="padding:20px 0;">Sin cargos aun.</div>';
         return;
     }
-    el.innerHTML = [...c.cargos].reverse().map(x => `
+    el.innerHTML = [...cargos].reverse().map(x => `
         <div class="venta-item">
             <div class="venta-info">
-                <div class="venta-nombre">${x.productoNombre}</div>
-                <div class="venta-detalle">${x.qty} ${x.unidad} x $${x.precio.toFixed(2)} · ${x.fecha}${x.nota ? ' · ' + x.nota : ''}</div>
+                <div class="venta-nombre">${x.producto_nombre}</div>
+                <div class="venta-detalle">${x.cantidad} ${x.unidad} x $${x.precio.toFixed(2)} · ${x.fecha}${x.nota ? ' · ' + x.nota : ''}</div>
             </div>
             <div class="venta-actions">
                 <span class="venta-total">$${x.total.toFixed(2)}</span>
@@ -154,50 +177,53 @@ function renderCargosModal(c) {
     `).join('');
 }
 
-function eliminarCargo(cargoId) {
-    const c = clientes.find(c => String(c.id) === String(clienteActivoId));
-    if (!c) return;
+async function eliminarCargo(cargoId) {
     if (!confirm('Eliminar este cargo?')) return;
-    c.cargos = c.cargos.filter(x => String(x.id) !== String(cargoId));
-    save();
-    renderCargosModal(c);
+    const res = await fetch(`/api/clientes/${clienteActivoId}/cargos/${cargoId}`, { method: 'DELETE' });
+    if (!res.ok) return alert('Error al eliminar cargo.');
+    await abrirCliente(clienteActivoId);
+    await cargarClientes();
     toast('Cargo eliminado');
 }
 
-function saldarCuenta() {
+async function saldarCuenta() {
     const c = clientes.find(c => String(c.id) === String(clienteActivoId));
-    if (!c) return;
-    if (!c.cargos.length) return alert('No hay cargos en la cuenta.');
+    if (!c || !(c.cargos || []).length) return alert('No hay cargos en la cuenta.');
     if (!confirm(`Marcar la cuenta de ${c.nombre} como pagada y limpiar los cargos?`)) return;
-    c.cargos = [];
-    save();
-    renderCargosModal(c);
-    renderClientes();
+
+    const res = await fetch(`/api/clientes/${clienteActivoId}/cargos`, { method: 'DELETE' });
+    if (!res.ok) return alert('Error al saldar cuenta.');
+
+    await abrirCliente(clienteActivoId);
+    await cargarClientes();
     toast('Cuenta saldada');
 }
 
-function eliminarCliente() {
+async function eliminarCliente() {
     const c = clientes.find(c => String(c.id) === String(clienteActivoId));
     if (!c) return;
     if (!confirm(`Eliminar al cliente "${c.nombre}" y toda su cuenta?`)) return;
-    clientes = clientes.filter(c => String(c.id) !== String(clienteActivoId));
-    save();
+
+    const res = await fetch(`/api/clientes/${clienteActivoId}`, { method: 'DELETE' });
+    if (!res.ok) return alert('Error al eliminar cliente.');
+
     cerrarModalCliente();
-    renderClientes();
+    await cargarClientes();
     toast('Cliente eliminado');
 }
 
 function imprimirPDF() {
     const c = clientes.find(c => String(c.id) === String(clienteActivoId));
     if (!c) return;
-    if (!c.cargos.length) return alert('No hay cargos para imprimir.');
+    const cargos = c.cargos || [];
+    if (!cargos.length) return alert('No hay cargos para imprimir.');
 
-    const total = c.cargos.reduce((a, x) => a + x.total, 0);
-    const filas = c.cargos.map(x => `
+    const total = cargos.reduce((a, x) => a + x.total, 0);
+    const filas = cargos.map(x => `
         <tr>
             <td>${x.fecha}</td>
-            <td>${x.productoNombre}${x.nota ? ' (' + x.nota + ')' : ''}</td>
-            <td>${x.qty} ${x.unidad}</td>
+            <td>${x.producto_nombre}${x.nota ? ' (' + x.nota + ')' : ''}</td>
+            <td>${x.cantidad} ${x.unidad}</td>
             <td style="text-align:right;">$${x.total.toFixed(2)}</td>
         </tr>
     `).join('');
@@ -220,7 +246,7 @@ function imprimirPDF() {
         </head>
         <body>
             <h1>Cuenta de: ${c.nombre}</h1>
-            <div class="sub">${c.tel ? 'Tel: ' + c.tel + ' &nbsp;|&nbsp; ' : ''}Generado el ${new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+            <div class="sub">${c.telefono ? 'Tel: ' + c.telefono + ' &nbsp;|&nbsp; ' : ''}Generado el ${new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
             <table>
                 <thead>
                     <tr>
